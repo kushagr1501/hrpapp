@@ -1,0 +1,365 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  nurse
+  doctor
+  admin
+  superadmin
+  patient
+}
+
+enum PatientStatus {
+  registered
+  screened
+  normal
+  high_risk
+  delivered
+  post_delivery
+  closed
+}
+
+enum RiskSeverity {
+  none
+  moderate
+  high
+  critical
+}
+
+enum VisitType {
+  registration
+  anc_2
+  anc_3
+  anc_4
+  followup
+  referral
+  delivery
+  post_delivery
+}
+
+enum ReferralStatus {
+  pending
+  in_transit
+  completed
+  cancelled
+}
+
+enum AlertStatus {
+  active
+  acknowledged
+  resolved
+  expired
+}
+
+enum FacilityType {
+  uphc
+  esi
+  fru
+  cemoc
+  district_hospital
+}
+
+model Facility {
+  id           String    @id @default(uuid())
+  name         String
+  type         FacilityType
+  ward         String?
+  address      String?
+  lat          Decimal?  @db.Decimal(10, 8)
+  lng          Decimal?  @db.Decimal(11, 8)
+  contactPhone String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  users            User[]
+  patients         Patient[]
+  visits           Visit[]
+  referredFrom     Referral[] @relation("ReferralFrom")
+  referredTo       Referral[] @relation("ReferralTo")
+  plannedBirths    BirthPlan[]
+}
+
+model User {
+  id            String   @id @default(uuid())
+  authId        String?  @unique
+  email         String?  @unique
+  fullName      String
+  phone         String   @unique
+  role          UserRole
+  facilityId    String?
+  ward          String?
+  languagePref  String   @default("en")
+  expoPushToken String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  facility            Facility?          @relation(fields: [facilityId], references: [id])
+  assignedPatients    Patient[]          @relation("AssignedNursePatients")
+  conductedVisits     Visit[]
+  recordedVitals      Vitals[]
+  riskAssessments     RiskAssessment[]
+  referrals           Referral[]
+  alerts              Alert[]
+  notificationLog     NotificationLog[]
+}
+
+model Patient {
+  id               String         @id @default(uuid())
+  authId           String?        @unique
+  userId           String?        @unique
+  email            String?        @unique
+  fullName         String
+  age              Int?
+  phone            String?
+  husbandName      String?
+  address          String?
+  ward             String?
+  slumName         String?
+  lmp              DateTime?
+  edd              DateTime?
+  gravida          Int?
+  para             Int?
+  status           PatientStatus  @default(registered)
+  riskSeverity     RiskSeverity   @default(none)
+  isHrp            Boolean        @default(false)
+  hrpFlaggedAt     DateTime?
+  assignedNurse    String?
+  facilityId       String?
+  mcpCardNumber    String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  facility            Facility?            @relation(fields: [facilityId], references: [id])
+  assignedNurseUser   User?                @relation("AssignedNursePatients", fields: [assignedNurse], references: [id])
+  visits              Visit[]
+  vitals              Vitals[]
+  obstetricHistory    ObstetricHistory[]
+  comorbidities       Comorbidity[]
+  riskAssessments     RiskAssessment[]
+  referrals           Referral[]
+  birthPlan           BirthPlan?
+  alerts              Alert[]
+  kickCounts          KickCount[]
+  notificationLogs    NotificationLog[]
+
+  @@index([status])
+  @@index([assignedNurse])
+  @@index([facilityId])
+  @@index([edd])
+  @@index([phone])
+  @@index([isHrp])
+}
+
+model Visit {
+  id             String    @id @default(uuid())
+  patientId      String
+  visitType      VisitType
+  visitNumber    Int?
+  windowStart    DateTime?
+  windowEnd      DateTime?
+  scheduledDate  DateTime?
+  actualDate     DateTime?
+  wasAccompanied Boolean   @default(false)
+  conductedBy    String?
+  facilityId     String?
+  notes          String?
+  isCompleted    Boolean   @default(false)
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  patient         Patient            @relation(fields: [patientId], references: [id])
+  conductedByUser User?              @relation(fields: [conductedBy], references: [id])
+  facility        Facility?          @relation(fields: [facilityId], references: [id])
+  vitals          Vitals[]
+  riskAssessments RiskAssessment[]
+  referrals       Referral[]
+
+  @@index([patientId])
+  @@index([visitType])
+}
+
+model Vitals {
+  id                  String   @id @default(uuid())
+  visitId             String
+  patientId           String
+  recordedBy          String?
+  recordedAt          DateTime @default(now())
+  bpSystolic          Int?
+  bpDiastolic         Int?
+  weightKg            Decimal? @db.Decimal(5, 2)
+  hemoglobin          Decimal? @db.Decimal(4, 1)
+  bloodSugar          Decimal? @db.Decimal(5, 1)
+  urineProtein        String?
+  fundalHeight        Decimal? @db.Decimal(4, 1)
+  fetalHeartRate      Int?
+  fetalPresentation   String?
+  fetalMovement       String?
+  isMultipleGestation Boolean  @default(false)
+  numberOfFetuses     Int      @default(1)
+  usgDone             Boolean  @default(false)
+  usgFindings         String?
+  iugrSuspected       Boolean  @default(false)
+  abdominalExamDone   Boolean  @default(false)
+  abdominalExamNotes  String?
+
+  visit     Visit   @relation(fields: [visitId], references: [id])
+  patient   Patient @relation(fields: [patientId], references: [id])
+  recorder  User?   @relation(fields: [recordedBy], references: [id])
+
+  @@index([patientId])
+  @@index([visitId])
+}
+
+model ObstetricHistory {
+  id              String   @id @default(uuid())
+  patientId       String
+  pregnancyNumber Int?
+  year            Int?
+  outcome         String?
+  deliveryMode    String?
+  complications   String?
+  birthWeight     Decimal? @db.Decimal(4, 2)
+  babyStatus      String?
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model Comorbidity {
+  id             String   @id @default(uuid())
+  patientId      String
+  condition      String
+  diagnosedDate  DateTime?
+  isActive       Boolean  @default(true)
+  notes          String?
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model RiskRule {
+  id             String       @id @default(uuid())
+  name           String
+  description    String?
+  category       String
+  ruleDefinition Json
+  severity       RiskSeverity
+  isActive       Boolean      @default(true)
+  priority       Int          @default(0)
+  createdAt      DateTime     @default(now())
+}
+
+model RiskAssessment {
+  id              String       @id @default(uuid())
+  patientId       String
+  visitId         String?
+  assessedBy      String?
+  assessedAt      DateTime     @default(now())
+  overallSeverity RiskSeverity
+  isHrp           Boolean
+  triggeredRules  Json
+
+  patient    Patient @relation(fields: [patientId], references: [id])
+  visit      Visit?  @relation(fields: [visitId], references: [id])
+  assessor   User?   @relation(fields: [assessedBy], references: [id])
+}
+
+model Referral {
+  id               String         @id @default(uuid())
+  patientId        String
+  visitId          String?
+  referredFrom     String?
+  referredTo       String?
+  referredBy       String?
+  reason           String
+  clinicalFindings String?
+  treatmentGiven   String?
+  status           ReferralStatus @default(pending)
+  outcome          String?
+  completedAt      DateTime?
+  createdAt        DateTime       @default(now())
+
+  patient          Patient   @relation(fields: [patientId], references: [id])
+  visit            Visit?    @relation(fields: [visitId], references: [id])
+  fromFacility     Facility? @relation("ReferralFrom", fields: [referredFrom], references: [id])
+  toFacility       Facility? @relation("ReferralTo", fields: [referredTo], references: [id])
+  referredByUser   User?     @relation(fields: [referredBy], references: [id])
+}
+
+model BirthPlan {
+  id                    String   @id @default(uuid())
+  patientId             String   @unique
+  plannedFacility       String?
+  plannedDeliveryMode   String?
+  transportArranged     Boolean  @default(false)
+  transportType         String?
+  bloodDonorArranged    Boolean  @default(false)
+  companionName         String?
+  companionPhone        String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  jsyEnrolled           Boolean  @default(false)
+  jsskEnrolled          Boolean  @default(false)
+  notes                 String?
+  updatedAt             DateTime @updatedAt
+
+  patient          Patient   @relation(fields: [patientId], references: [id])
+  plannedFacilityRef Facility? @relation(fields: [plannedFacility], references: [id])
+}
+
+model Alert {
+  id                String      @id @default(uuid())
+  patientId         String
+  assignedTo        String
+  alertType         String
+  title             String
+  message           String?
+  priority          String      @default("normal")
+  expectedVisitType VisitType?
+  expectedByDate    DateTime?
+  daysOverdue       Int?
+  status            AlertStatus @default(active)
+  acknowledgedAt    DateTime?
+  resolvedAt        DateTime?
+  createdAt         DateTime    @default(now())
+
+  patient       Patient @relation(fields: [patientId], references: [id])
+  assignedUser  User    @relation(fields: [assignedTo], references: [id])
+
+  @@index([patientId])
+  @@index([assignedTo, status])
+}
+
+model NotificationLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  patientId  String?
+  channel    String
+  template   String
+  status     String   @default("sent")
+  metadata   Json?
+  sentAt     DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  patient Patient? @relation(fields: [patientId], references: [id])
+}
+
+model KickCount {
+  id              String   @id @default(uuid())
+  patientId       String
+  date            DateTime
+  count           Int
+  durationMinutes Int?
+  startedAt       DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@unique([patientId, date])
+}
