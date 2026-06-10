@@ -233,6 +233,9 @@ export const comorbiditiesService = {
       const reassessment = await reassessPatientRisk(tx, patient.id, actor);
 
       return { comorbidity, hrpAlertId: reassessment?.hrpAlertId };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {
@@ -264,6 +267,9 @@ export const comorbiditiesService = {
       const reassessment = await reassessPatientRisk(tx, comorbidity.patientId, actor);
 
       return { comorbidity, hrpAlertId: reassessment?.hrpAlertId };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {
@@ -294,6 +300,9 @@ export const comorbiditiesService = {
       const reassessment = await reassessPatientRisk(tx, existingComorbidity.patientId, actor);
 
       return { hrpAlertId: reassessment?.hrpAlertId };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {

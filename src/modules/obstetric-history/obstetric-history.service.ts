@@ -240,6 +240,9 @@ export const obstetricHistoryService = {
       const reassessment = await reassessPatientRisk(tx, patient.id, actor);
 
       return { history, hrpAlertId: reassessment?.hrpAlertId };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {
@@ -271,6 +274,9 @@ export const obstetricHistoryService = {
       const reassessment = await reassessPatientRisk(tx, history.patientId, actor);
 
       return { history, hrpAlertId: reassessment?.hrpAlertId };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {
@@ -301,6 +307,9 @@ export const obstetricHistoryService = {
       const reassessment = await reassessPatientRisk(tx, existingHistory.patientId, actor);
 
       return { hrpAlertId: reassessment?.hrpAlertId };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {

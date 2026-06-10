@@ -255,6 +255,9 @@ export const vitalsService = {
         followUpVisitsCreated,
         hrpAlertId
       };
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
 
     if (result.hrpAlertId) {
