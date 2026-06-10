@@ -20,6 +20,9 @@ import rateLimit from "express-rate-limit";
 export function createApp() {
   const app = express();
 
+  // Trust the first proxy to enable correct rate-limiting behind Render's load balancer
+  app.set("trust proxy", 1);
+
   app.use(
     cors({
       origin: env.ALLOWED_ORIGIN === "*" ? (origin, callback) => callback(null, true) : env.ALLOWED_ORIGIN,
