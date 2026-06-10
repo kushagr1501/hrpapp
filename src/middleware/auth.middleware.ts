@@ -60,19 +60,50 @@ export async function requireAuth(request: Request, _response: Response, next: N
     return next(createHttpError(401, "Invalid or expired token"));
   }
 
-  const appUser = await prisma.user.findFirst({
+  let appUser = await prisma.user.findFirst({
     where: {
       authId: data.user.id,
       isActive: true
     }
   });
 
+  if (!appUser && data.user.email) {
+    appUser = await prisma.user.findFirst({
+      where: {
+        email: data.user.email,
+        isActive: true
+      }
+    });
+
+    if (appUser) {
+      await prisma.user.update({
+        where: { id: appUser.id },
+        data: { authId: data.user.id }
+      });
+    }
+  }
+
   if (!appUser) {
-    const patientUser = await prisma.patient.findFirst({
+    let patientUser = await prisma.patient.findFirst({
       where: {
         authId: data.user.id
       }
     });
+
+    if (!patientUser && data.user.email) {
+      patientUser = await prisma.patient.findFirst({
+        where: {
+          email: data.user.email
+        }
+      });
+
+      if (patientUser) {
+        await prisma.patient.update({
+          where: { id: patientUser.id },
+          data: { authId: data.user.id }
+        });
+      }
+    }
 
     if (!patientUser) {
       return next(createHttpError(403, "User is not provisioned in HRP"));

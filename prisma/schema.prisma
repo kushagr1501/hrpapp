@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -67,23 +67,23 @@ enum FacilityType {
 }
 
 model Facility {
-  id           String    @id @default(uuid())
+  id           String       @id @default(uuid())
   name         String
   type         FacilityType
   ward         String?
   address      String?
-  lat          Decimal?  @db.Decimal(10, 8)
-  lng          Decimal?  @db.Decimal(11, 8)
+  lat          Decimal?     @db.Decimal(10, 8)
+  lng          Decimal?     @db.Decimal(11, 8)
   contactPhone String?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
 
-  users            User[]
-  patients         Patient[]
-  visits           Visit[]
-  referredFrom     Referral[] @relation("ReferralFrom")
-  referredTo       Referral[] @relation("ReferralTo")
-  plannedBirths    BirthPlan[]
+  users         User[]
+  patients      Patient[]
+  visits        Visit[]
+  referredFrom  Referral[]  @relation("ReferralFrom")
+  referredTo    Referral[]  @relation("ReferralTo")
+  plannedBirths BirthPlan[]
 }
 
 model User {
@@ -100,54 +100,54 @@ model User {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
 
-  facility            Facility?          @relation(fields: [facilityId], references: [id])
-  assignedPatients    Patient[]          @relation("AssignedNursePatients")
-  conductedVisits     Visit[]
-  recordedVitals      Vitals[]
-  riskAssessments     RiskAssessment[]
-  referrals           Referral[]
-  alerts              Alert[]
-  notificationLog     NotificationLog[]
+  facility         Facility?         @relation(fields: [facilityId], references: [id])
+  assignedPatients Patient[]         @relation("AssignedNursePatients")
+  conductedVisits  Visit[]
+  recordedVitals   Vitals[]
+  riskAssessments  RiskAssessment[]
+  referrals        Referral[]
+  alerts           Alert[]
+  notificationLog  NotificationLog[]
 }
 
 model Patient {
-  id               String         @id @default(uuid())
-  authId           String?        @unique
-  userId           String?        @unique
-  email            String?        @unique
-  fullName         String
-  age              Int?
-  phone            String?
-  husbandName      String?
-  address          String?
-  ward             String?
-  slumName         String?
-  lmp              DateTime?
-  edd              DateTime?
-  gravida          Int?
-  para             Int?
-  status           PatientStatus  @default(registered)
-  riskSeverity     RiskSeverity   @default(none)
-  isHrp            Boolean        @default(false)
-  hrpFlaggedAt     DateTime?
-  assignedNurse    String?
-  facilityId       String?
-  mcpCardNumber    String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id            String        @id @default(uuid())
+  authId        String?       @unique
+  userId        String?       @unique
+  email         String?       @unique
+  fullName      String
+  age           Int?
+  phone         String?
+  husbandName   String?
+  address       String?
+  ward          String?
+  slumName      String?
+  lmp           DateTime?
+  edd           DateTime?
+  gravida       Int?
+  para          Int?
+  status        PatientStatus @default(registered)
+  riskSeverity  RiskSeverity  @default(none)
+  isHrp         Boolean       @default(false)
+  hrpFlaggedAt  DateTime?
+  assignedNurse String?
+  facilityId    String?
+  mcpCardNumber String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  facility            Facility?            @relation(fields: [facilityId], references: [id])
-  assignedNurseUser   User?                @relation("AssignedNursePatients", fields: [assignedNurse], references: [id])
-  visits              Visit[]
-  vitals              Vitals[]
-  obstetricHistory    ObstetricHistory[]
-  comorbidities       Comorbidity[]
-  riskAssessments     RiskAssessment[]
-  referrals           Referral[]
-  birthPlan           BirthPlan?
-  alerts              Alert[]
-  kickCounts          KickCount[]
-  notificationLogs    NotificationLog[]
+  facility          Facility?          @relation(fields: [facilityId], references: [id])
+  assignedNurseUser User?              @relation("AssignedNursePatients", fields: [assignedNurse], references: [id])
+  visits            Visit[]
+  vitals            Vitals[]
+  obstetricHistory  ObstetricHistory[]
+  comorbidities     Comorbidity[]
+  riskAssessments   RiskAssessment[]
+  referrals         Referral[]
+  birthPlan         BirthPlan?
+  alerts            Alert[]
+  kickCounts        KickCount[]
+  notificationLogs  NotificationLog[]
 
   @@index([status])
   @@index([assignedNurse])
@@ -174,9 +174,9 @@ model Visit {
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
 
-  patient         Patient            @relation(fields: [patientId], references: [id])
-  conductedByUser User?              @relation(fields: [conductedBy], references: [id])
-  facility        Facility?          @relation(fields: [facilityId], references: [id])
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  conductedByUser User?            @relation(fields: [conductedBy], references: [id])
+  facility        Facility?        @relation(fields: [facilityId], references: [id])
   vitals          Vitals[]
   riskAssessments RiskAssessment[]
   referrals       Referral[]
@@ -209,9 +209,9 @@ model Vitals {
   abdominalExamDone   Boolean  @default(false)
   abdominalExamNotes  String?
 
-  visit     Visit   @relation(fields: [visitId], references: [id])
-  patient   Patient @relation(fields: [patientId], references: [id])
-  recorder  User?   @relation(fields: [recordedBy], references: [id])
+  visit    Visit   @relation(fields: [visitId], references: [id])
+  patient  Patient @relation(fields: [patientId], references: [id])
+  recorder User?   @relation(fields: [recordedBy], references: [id])
 
   @@index([patientId])
   @@index([visitId])
@@ -232,12 +232,12 @@ model ObstetricHistory {
 }
 
 model Comorbidity {
-  id             String   @id @default(uuid())
-  patientId      String
-  condition      String
-  diagnosedDate  DateTime?
-  isActive       Boolean  @default(true)
-  notes          String?
+  id            String    @id @default(uuid())
+  patientId     String
+  condition     String
+  diagnosedDate DateTime?
+  isActive      Boolean   @default(true)
+  notes         String?
 
   patient Patient @relation(fields: [patientId], references: [id])
 }
@@ -264,9 +264,11 @@ model RiskAssessment {
   isHrp           Boolean
   triggeredRules  Json
 
-  patient    Patient @relation(fields: [patientId], references: [id])
-  visit      Visit?  @relation(fields: [visitId], references: [id])
-  assessor   User?   @relation(fields: [assessedBy], references: [id])
+  patient  Patient @relation(fields: [patientId], references: [id])
+  visit    Visit?  @relation(fields: [visitId], references: [id])
+  assessor User?   @relation(fields: [assessedBy], references: [id])
+
+  @@index([patientId])
 }
 
 model Referral {
@@ -284,11 +286,16 @@ model Referral {
   completedAt      DateTime?
   createdAt        DateTime       @default(now())
 
-  patient          Patient   @relation(fields: [patientId], references: [id])
-  visit            Visit?    @relation(fields: [visitId], references: [id])
-  fromFacility     Facility? @relation("ReferralFrom", fields: [referredFrom], references: [id])
-  toFacility       Facility? @relation("ReferralTo", fields: [referredTo], references: [id])
-  referredByUser   User?     @relation(fields: [referredBy], references: [id])
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  visit          Visit?    @relation(fields: [visitId], references: [id])
+  fromFacility   Facility? @relation("ReferralFrom", fields: [referredFrom], references: [id])
+  toFacility     Facility? @relation("ReferralTo", fields: [referredTo], references: [id])
+  referredByUser User?     @relation(fields: [referredBy], references: [id])
+
+  @@index([patientId])
+  @@index([status])
+  @@index([referredTo])
+  @@index([referredFrom])
 }
 
 model BirthPlan {
@@ -308,7 +315,7 @@ model BirthPlan {
   notes                 String?
   updatedAt             DateTime @updatedAt
 
-  patient          Patient   @relation(fields: [patientId], references: [id])
+  patient            Patient   @relation(fields: [patientId], references: [id])
   plannedFacilityRef Facility? @relation(fields: [plannedFacility], references: [id])
 }
 
@@ -328,36 +335,36 @@ model Alert {
   resolvedAt        DateTime?
   createdAt         DateTime    @default(now())
 
-  patient       Patient @relation(fields: [patientId], references: [id])
-  assignedUser  User    @relation(fields: [assignedTo], references: [id])
+  patient      Patient @relation(fields: [patientId], references: [id])
+  assignedUser User    @relation(fields: [assignedTo], references: [id])
 
   @@index([patientId])
   @@index([assignedTo, status])
 }
 
 model NotificationLog {
-  id         String   @id @default(uuid())
-  userId     String?
-  patientId  String?
-  channel    String
-  template   String
-  status     String   @default("sent")
-  metadata   Json?
-  sentAt     DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String?
+  patientId String?
+  channel   String
+  template  String
+  status    String   @default("sent")
+  metadata  Json?
+  sentAt    DateTime @default(now())
 
   user    User?    @relation(fields: [userId], references: [id])
   patient Patient? @relation(fields: [patientId], references: [id])
 }
 
 model KickCount {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   patientId       String
   date            DateTime
   count           Int
   durationMinutes Int?
   startedAt       DateTime?
   notes           String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
 
