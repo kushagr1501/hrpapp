@@ -80,6 +80,26 @@ export async function requireAuth(request: Request, _response: Response, next: N
         where: { id: appUser.id },
         data: { authId: data.user.id }
       });
+    } else {
+      // DEV FALLBACK: If user signed up directly via the mobile app with a personal email,
+      // lazy-provision a new Prisma User for them assigned to the demo facility.
+      try {
+        appUser = await prisma.user.create({
+          data: {
+            authId: data.user.id,
+            email: data.user.email ?? "unknown@hrp.local",
+            fullName: data.user.user_metadata?.full_name ?? "Testing Nurse",
+            phone: "+91" + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
+            role: "nurse",
+            facilityId: "fac-001" // Assign to demo facility
+          }
+        });
+      } catch (err) {
+        // Fallback if creation fails
+        appUser = await prisma.user.findFirst({
+          where: { email: "nurse@hrp.local" }
+        });
+      }
     }
   }
 
