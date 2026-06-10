@@ -80,26 +80,6 @@ export async function requireAuth(request: Request, _response: Response, next: N
         where: { id: appUser.id },
         data: { authId: data.user.id }
       });
-    } else if (!data.user.email?.includes('@patient')) {
-      // DEV FALLBACK FOR NURSES: If user signed up via the mobile app with a non-patient email,
-      // lazy-provision a new Prisma User for them assigned to the demo facility.
-      try {
-        appUser = await prisma.user.create({
-          data: {
-            authId: data.user.id,
-            email: data.user.email ?? "unknown@hrp.local",
-            fullName: data.user.user_metadata?.full_name ?? "Testing Nurse",
-            phone: "+91" + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
-            role: "nurse",
-            facilityId: "fac-001" // Assign to demo facility
-          }
-        });
-      } catch (err) {
-        // Fallback if creation fails
-        appUser = await prisma.user.findFirst({
-          where: { email: "nurse@hrp.local" }
-        });
-      }
     }
   }
 
@@ -122,32 +102,11 @@ export async function requireAuth(request: Request, _response: Response, next: N
           where: { id: patientUser.id },
           data: { authId: data.user.id }
         });
-      } else {
-        // DEV FALLBACK FOR PATIENTS: If user signed up via the mobile app with a @patient email,
-        // lazy-provision a new Prisma Patient for them assigned to the demo facility.
-        try {
-          patientUser = await prisma.patient.create({
-            data: {
-              authId: data.user.id,
-              email: data.user.email ?? "unknown@patient.hrp.local",
-              fullName: data.user.user_metadata?.full_name ?? "Testing Patient",
-              phone: "+91" + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
-              age: 25,
-              lmp: new Date(),
-              facilityId: "fac-001" // Assign to demo facility
-            }
-          });
-        } catch (err) {
-          // Fallback if creation fails
-          patientUser = await prisma.patient.findFirst({
-            where: { email: "kavitha@hrp.local" }
-          });
-        }
       }
     }
 
     if (!patientUser) {
-      return next(createHttpError(403, "User is not provisioned in HRP"));
+      return next(createHttpError(403, "User is not provisioned in HRP. Please sign up first."));
     }
 
     request.user = {
