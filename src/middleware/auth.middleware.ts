@@ -80,8 +80,8 @@ export async function requireAuth(request: Request, _response: Response, next: N
         where: { id: appUser.id },
         data: { authId: data.user.id }
       });
-    } else {
-      // DEV FALLBACK: If user signed up directly via the mobile app with a personal email,
+    } else if (!data.user.email?.includes('@patient')) {
+      // DEV FALLBACK FOR NURSES: If user signed up via the mobile app with a non-patient email,
       // lazy-provision a new Prisma User for them assigned to the demo facility.
       try {
         appUser = await prisma.user.create({
@@ -122,6 +122,27 @@ export async function requireAuth(request: Request, _response: Response, next: N
           where: { id: patientUser.id },
           data: { authId: data.user.id }
         });
+      } else {
+        // DEV FALLBACK FOR PATIENTS: If user signed up via the mobile app with a @patient email,
+        // lazy-provision a new Prisma Patient for them assigned to the demo facility.
+        try {
+          patientUser = await prisma.patient.create({
+            data: {
+              authId: data.user.id,
+              email: data.user.email ?? "unknown@patient.hrp.local",
+              fullName: data.user.user_metadata?.full_name ?? "Testing Patient",
+              phone: "+91" + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
+              dateOfBirth: new Date("1995-01-01"),
+              lmp: new Date(),
+              facilityId: "fac-001" // Assign to demo facility
+            }
+          });
+        } catch (err) {
+          // Fallback if creation fails
+          patientUser = await prisma.patient.findFirst({
+            where: { email: "kavitha@hrp.local" }
+          });
+        }
       }
     }
 
