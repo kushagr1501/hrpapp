@@ -109,6 +109,9 @@ export const patientService = {
           }
         }
       });
+    }, {
+      timeout: 15000,
+      maxWait: 5000
     });
   },
 
