@@ -132,7 +132,7 @@ export async function requireAuth(request: Request, _response: Response, next: N
               email: data.user.email ?? "unknown@patient.hrp.local",
               fullName: data.user.user_metadata?.full_name ?? "Testing Patient",
               phone: "+91" + Math.floor(1000000000 + Math.random() * 9000000000).toString(),
-              dateOfBirth: new Date("1995-01-01"),
+              age: 25,
               lmp: new Date(),
               facilityId: "fac-001" // Assign to demo facility
             }
