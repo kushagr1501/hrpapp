@@ -44,10 +44,9 @@ export const patientController = {
         }
       } else {
         authId = data.user.id;
-        console.log("Created supabase user:", authId);
       }
     } else {
-      console.log("No phone provided in request body:", request.body);
+      // No phone provided — patient will need to be assigned credentials manually
     }
 
     try {
@@ -65,7 +64,6 @@ export const patientController = {
           para: request.body.para,
           mcpCardNumber: request.body.mcpCardNumber,
           status: "registered",
-          riskSeverity: "none",
           authId: authId,
           email: dummyEmail,
           assignedNurseUser: request.body.assignedNurse
@@ -84,8 +82,8 @@ export const patientController = {
         facilityId: request.body.facilityId ?? request.user?.facilityId ?? undefined
       });
 
-      console.log("Sending response data:", { ...patient, credentials: generatedPin && dummyEmail ? { email: dummyEmail, pin: generatedPin } : undefined });
-
+      // Credentials are returned to the nurse — do NOT log the PIN to avoid
+      // exposing patient credentials in server logs / log aggregators.
       response.status(201).json({
         success: true,
         data: {
@@ -96,7 +94,11 @@ export const patientController = {
     } catch (error: any) {
       if (authId) {
         const { supabaseAdmin } = await import("../../config/supabase.js");
-        await supabaseAdmin.auth.admin.deleteUser(authId);
+        // Best-effort rollback — if deleteUser fails (e.g. network timeout), log but don't
+        // mask the original DB error. The orphaned Supabase user will need manual cleanup.
+        await supabaseAdmin.auth.admin.deleteUser(authId).catch((deleteErr: unknown) => {
+          console.error("[patient.create] Failed to rollback Supabase user after DB error:", deleteErr);
+        });
       }
       if (error.code === 'P2002') {
         throw createHttpError(409, "User with this phone number already exists.");

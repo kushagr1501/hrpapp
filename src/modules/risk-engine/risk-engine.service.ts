@@ -1,4 +1,3 @@
-import { RiskSeverity } from "@prisma/client";
 import { z } from "zod";
 import type {
   AssessmentContext,
@@ -9,13 +8,6 @@ import type {
   RuleCondition,
   TriggeredRule
 } from "./risk-engine.types.js";
-
-const severityOrder: Record<RiskSeverity, number> = {
-  [RiskSeverity.none]: 0,
-  [RiskSeverity.moderate]: 1,
-  [RiskSeverity.high]: 2,
-  [RiskSeverity.critical]: 3
-};
 
 const ruleConditionSchema = z.object({
   field: z.string().min(1),
@@ -149,10 +141,6 @@ function ruleMatches(definition: RiskRuleDefinition, context: AssessmentContext)
   });
 }
 
-function maxSeverity(current: RiskSeverity, candidate: RiskSeverity) {
-  return severityOrder[candidate] > severityOrder[current] ? candidate : current;
-}
-
 export const riskEngineService = {
   parseRuleDefinition(definition: unknown): RiskRuleDefinition {
     return riskRuleDefinitionSchema.parse(definition) as RiskRuleDefinition;
@@ -161,7 +149,7 @@ export const riskEngineService = {
   evaluateRules(rules: RiskRuleRecord[], context: AssessmentContext): RiskAssessmentResult {
     const orderedRules = [...rules].sort((left, right) => right.priority - left.priority);
     const triggeredRules: TriggeredRule[] = [];
-    let overallSeverity: RiskSeverity = RiskSeverity.none;
+    let isHrp = false;
 
     for (const rule of orderedRules) {
       const definition = this.parseRuleDefinition(rule.ruleDefinition);
@@ -173,15 +161,16 @@ export const riskEngineService = {
         ruleId: rule.id,
         ruleName: rule.name,
         category: rule.category,
-        severity: rule.severity
+        isHrp: rule.isHrp
       });
 
-      overallSeverity = maxSeverity(overallSeverity, rule.severity);
+      if (rule.isHrp) {
+        isHrp = true;
+      }
     }
 
     return {
-      overallSeverity,
-      isHrp: severityOrder[overallSeverity] >= severityOrder[RiskSeverity.high],
+      isHrp,
       triggeredRules
     };
   }

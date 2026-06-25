@@ -40,9 +40,11 @@ function startOfTodayUtc() {
 function patientIdentityWhere(actor: AuthUser): Prisma.PatientWhereInput {
   return {
     OR: [
-      { userId: actor.id },
+      { id: actor.id },
       ...(actor.authId ? [{ authId: actor.authId }] : []),
-      { phone: actor.phone }
+      // Only fall back to phone when it is a real phone number (not empty string).
+      // An empty string would match every patient registered without a phone.
+      ...(actor.phone ? [{ phone: actor.phone }] : [])
     ]
   };
 }
@@ -113,70 +115,4 @@ export const patientSelfService = {
     });
   },
 
-  async listKickCounts(actor: AuthUser, input: { from?: string; to?: string }) {
-    const patient = await prisma.patient.findFirst({
-      where: patientIdentityWhere(actor),
-      select: { id: true }
-    });
-
-    if (!patient) {
-      return null;
-    }
-
-    return prisma.kickCount.findMany({
-      where: {
-        patientId: patient.id,
-        date: {
-          gte: input.from ? startOfDateOnly(input.from) : undefined,
-          lte: input.to ? startOfDateOnly(input.to) : undefined
-        }
-      },
-      orderBy: { date: "desc" }
-    });
-  },
-
-  async upsertKickCount(
-    actor: AuthUser,
-    input: {
-      date?: string;
-      count: number;
-      durationMinutes?: number;
-      startedAt?: string;
-      notes?: string;
-    }
-  ) {
-    const patient = await prisma.patient.findFirst({
-      where: patientIdentityWhere(actor),
-      select: { id: true }
-    });
-
-    if (!patient) {
-      return null;
-    }
-
-    const date = input.date ? startOfDateOnly(input.date) : startOfTodayUtc();
-
-    return prisma.kickCount.upsert({
-      where: {
-        patientId_date: {
-          patientId: patient.id,
-          date
-        }
-      },
-      create: {
-        patientId: patient.id,
-        date,
-        count: input.count,
-        durationMinutes: input.durationMinutes,
-        startedAt: input.startedAt ? new Date(input.startedAt) : undefined,
-        notes: input.notes
-      },
-      update: {
-        count: input.count,
-        durationMinutes: input.durationMinutes,
-        startedAt: input.startedAt ? new Date(input.startedAt) : undefined,
-        notes: input.notes
-      }
-    });
-  }
 };

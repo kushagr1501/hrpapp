@@ -88,7 +88,6 @@ async function main() {
     gravida: 2,
     para: 1,
     status: "high_risk" as const,
-    riskSeverity: "high" as const,
     isHrp: true,
     assignedNurse: nurse.id,
     facilityId: facility.id,
@@ -136,7 +135,6 @@ async function main() {
         where: { id: existingRule.id },
         data: {
           category: rule.category,
-          severity: rule.severity,
           priority: rule.priority,
           ruleDefinition: rule.ruleDefinition,
           isActive: true,
@@ -151,7 +149,6 @@ async function main() {
         name: rule.name,
         description: rule.name,
         category: rule.category,
-        severity: rule.severity,
         priority: rule.priority,
         ruleDefinition: rule.ruleDefinition,
         isActive: true

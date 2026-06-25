@@ -21,9 +21,38 @@ export const authController = {
     });
   },
 
+  async loginPin(request: Request, response: Response) {
+    const { phone, pin } = request.body;
+    const result = await authService.loginWithPin(phone, pin);
+    response.json({
+      success: true,
+      message: "Login successful",
+      data: result
+    });
+  },
+
+  async generateRecovery(request: Request, response: Response) {
+    const { userId } = request.body;
+    const securityKey = await authService.generateRecoveryKey(userId);
+    response.json({
+      success: true,
+      message: "Recovery key generated",
+      data: { securityKey }
+    });
+  },
+
+  async resetPin(request: Request, response: Response) {
+    const { phone, securityKey, newPin } = request.body;
+    await authService.resetPin(phone, securityKey, newPin);
+    response.json({
+      success: true,
+      message: "PIN reset successful"
+    });
+  },
+
   async registerStaff(request: Request, response: Response) {
-    const { email, password, role, facilityId, fullName, phone } = request.body;
-    const user = await authService.registerStaff(email, password, role, facilityId, fullName, phone);
+    const { fullName, phone, pin, role, facilityId } = request.body;
+    const user = await authService.registerStaff(fullName, phone, pin, role, facilityId);
     
     response.status(201).json({
       success: true,
@@ -60,6 +89,11 @@ export const authController = {
     }
 
     const user = await authService.getCurrentUser(request.user.id);
+
+    if (!user) {
+      throw createHttpError(404, "User profile not found. The account may have been deleted.");
+    }
+
     response.json({
       success: true,
       data: user

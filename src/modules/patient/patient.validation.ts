@@ -8,7 +8,10 @@ export const patientListQuerySchema = z.object({
   status: z.nativeEnum(PatientStatus).optional(),
   ward: z.string().optional(),
   facilityId: z.string().uuid().optional(),
-  isHrp: z.coerce.boolean().optional()
+  isHrp: z.coerce.boolean().optional(),
+  assignedNurse: z.string().optional(),
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().min(1).max(100).optional()
 });
 
 export const patientParamsSchema = z.object({

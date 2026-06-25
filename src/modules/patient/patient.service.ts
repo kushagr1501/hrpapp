@@ -1,13 +1,15 @@
 import { PatientStatus, Prisma, UserRole } from "@prisma/client";
+import createHttpError from "http-errors";
 import { prisma } from "../../config/prisma.js";
 import type { PatientListFilters } from "./patient.types.js";
+import { notificationService } from "../notifications/notification.service.js";
 import { buildAncVisitWindows } from "../../utils/visit-windows.js";
 import { calculateEddFromLmp } from "../../utils/edd.js";
 import type { AuthUser } from "../../types/auth.js";
 
 function buildPatientWhereClause(filters: PatientListFilters, nurseId?: string): Prisma.PatientWhereInput {
   return {
-    assignedNurse: nurseId ?? undefined,
+    assignedNurse: nurseId ?? filters.assignedNurse ?? undefined,
     status: filters.status as PatientStatus | undefined,
     ward: filters.ward,
     facilityId: filters.facilityId,
@@ -35,25 +37,41 @@ function buildScopedPatientWhere(id: string, actor?: AuthUser): Prisma.PatientWh
 
 export const patientService = {
   async list(filters: PatientListFilters, nurseId?: string) {
-    return prisma.patient.findMany({
+    const limit = filters.limit ?? 50;
+    const items = await prisma.patient.findMany({
+      take: limit + 1,
+      cursor: filters.cursor ? { id: filters.cursor } : undefined,
       where: buildPatientWhereClause(filters, nurseId),
       include: {
         facility: true,
         assignedNurseUser: true,
+        // Fetch ALL pending visits — needed for accurate dashboard stats
+        // (overdue count, today's visits, upcoming visits list)
         visits: {
           where: {
             isCompleted: false
           },
           orderBy: {
             windowStart: "asc"
-          },
-          take: 1
+          }
         }
       },
-      orderBy: {
-        createdAt: "desc"
-      }
+      orderBy: [
+        { createdAt: "desc" },
+        { id: "desc" }
+      ]
     });
+
+    let nextCursor: string | undefined = undefined;
+    if (items.length > limit) {
+      const nextItem = items.pop();
+      nextCursor = nextItem!.id;
+    }
+
+    return {
+      patients: items,
+      nextCursor
+    };
   },
 
   async createWithInitialVisits(input: {
@@ -121,11 +139,11 @@ export const patientService = {
       include: {
         facility: true,
         assignedNurseUser: true,
+        // No hard limit — HRP patients can have many visits (ANC + followups)
         visits: {
           orderBy: {
             createdAt: "asc"
-          },
-          take: 10
+          }
         },
         vitals: {
           orderBy: {
@@ -168,14 +186,40 @@ export const patientService = {
   async update(id: string, data: Prisma.PatientUpdateInput, actor?: AuthUser) {
     const existingPatient = await prisma.patient.findFirst({
       where: buildScopedPatientWhere(id, actor),
-      select: { id: true }
+      select: { id: true, facilityId: true, isHrp: true, status: true }
     });
 
     if (!existingPatient) {
       return null;
     }
 
-    return prisma.patient.update({
+    // Validate that the target nurse exists, is active, and has the nurse role.
+    // This prevents assigning patients to admins or nurses from other facilities.
+    let targetNurseId: string | undefined = undefined;
+    
+    if (typeof (data as any).assignedNurse === "string") {
+      targetNurseId = (data as any).assignedNurse;
+    } else if (data.assignedNurseUser && typeof data.assignedNurseUser === "object" && "connect" in data.assignedNurseUser) {
+      targetNurseId = (data.assignedNurseUser as { connect: { id: string } }).connect.id;
+    }
+
+    if (targetNurseId) {
+      const targetNurse = await prisma.user.findFirst({
+        where: {
+          id: targetNurseId,
+          role: UserRole.nurse,
+          isActive: true,
+          ...(existingPatient.facilityId ? { facilityId: existingPatient.facilityId } : {})
+        },
+        select: { id: true }
+      });
+
+      if (!targetNurse) {
+        throw createHttpError(400, "The specified nurse is not an active nurse in this facility.");
+      }
+    }
+
+    const updated = await prisma.patient.update({
       where: { id: existingPatient.id },
       data,
       include: {
@@ -183,6 +227,21 @@ export const patientService = {
         assignedNurseUser: true
       }
     });
+
+    // Fire notifications if HRP or Delivery status changes
+    if (data.isHrp === true && !existingPatient.isHrp) {
+      if (updated.userId && updated.assignedNurse) {
+        notificationService.notifyHighRiskFlag(updated.userId, updated.assignedNurse, updated.fullName).catch(console.error);
+      }
+    }
+
+    if (data.status === 'delivered' && existingPatient.status !== 'delivered') {
+      if (updated.assignedNurse) {
+        notificationService.notifyDeliveryLogged(updated.assignedNurse, updated.fullName, updated.id).catch(console.error);
+      }
+    }
+
+    return updated;
   },
 
   async getVitals(id: string, actor?: AuthUser) {

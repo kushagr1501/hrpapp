@@ -38,9 +38,10 @@ export function buildAncVisitWindows(lmp: Date, registeredAt: Date = new Date())
       scheduledDate: addWeeks(lmp, 20)
     },
     {
+      // Window starts at week 26 (immediately after ANC 2 ends — no gap)
       visitType: "anc_3",
       visitNumber: 3,
-      windowStart: addWeeks(lmp, 28),
+      windowStart: addWeeks(lmp, 26),
       windowEnd: addWeeks(lmp, 32),
       scheduledDate: addWeeks(lmp, 30)
     },
@@ -63,8 +64,8 @@ export function buildHrpFollowupVisitWindows(flaggedAt: Date): VisitWindow[] {
     return {
       visitType: "followup",
       visitNumber: index + 1,
-      windowStart: scheduledDate,
-      windowEnd: scheduledDate,
+      windowStart: addDays(scheduledDate, -3), // ±3 day grace — nurse isn't overdue immediately
+      windowEnd: addDays(scheduledDate, 3),
       scheduledDate
     };
   });

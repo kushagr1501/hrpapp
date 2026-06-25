@@ -4,7 +4,7 @@ import { z } from "zod";
 config();
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DIRECT_URL: z.string().min(1, "DIRECT_URL is required"),
@@ -16,7 +16,8 @@ const envSchema = z.object({
     .optional()
     .transform((value) => value === "true"),
   DEV_AUTH_KEY: z.string().optional(),
-  ALLOWED_ORIGIN: z.string().default("*")
+  ALLOWED_ORIGIN: z.string().min(1, "ALLOWED_ORIGIN is required. Set to your frontend URL(s), comma-separated."),
+  JWT_SECRET: z.string().optional()
 });
 
 const parsed = envSchema.safeParse(process.env);

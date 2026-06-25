@@ -129,7 +129,8 @@ export const referralsService = {
       include: referralInclude
     });
 
-    if (patient.assignedNurse) {
+    // Only notify the assigned nurse if the referral was created by someone else
+    if (patient.assignedNurse && actor?.id !== patient.assignedNurse) {
       await notificationService.sendPushToUser(patient.assignedNurse, {
         title: `Referral created for ${patient.fullName}`,
         body: referral.reason,

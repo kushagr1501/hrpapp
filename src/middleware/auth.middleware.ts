@@ -42,6 +42,8 @@ async function tryDevelopmentAuth(request: Request) {
   return true;
 }
 
+import jwt from "jsonwebtoken";
+
 export async function requireAuth(request: Request, _response: Response, next: NextFunction) {
   const authHeader = request.headers.authorization;
 
@@ -53,57 +55,80 @@ export async function requireAuth(request: Request, _response: Response, next: N
     return next(createHttpError(401, "Missing bearer token"));
   }
 
-  const token = authHeader.replace("Bearer ", "").trim();
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  // Try custom JWT first for staff
+  try {
+    const jwtSecret = env.JWT_SECRET || "fallback-secret-for-dev";
+    const decoded = jwt.verify(token, jwtSecret) as any;
+    
+    if (decoded && decoded.type === "custom-staff-auth") {
+      const appUser = await prisma.user.findUnique({ where: { id: decoded.id } });
+      if (!appUser || !appUser.isActive) {
+        return next(createHttpError(403, "User is disabled or not found."));
+      }
+      
+      request.user = {
+        id: appUser.id,
+        authId: appUser.authId,
+        role: appUser.role,
+        phone: appUser.phone,
+        facilityId: appUser.facilityId
+      };
+      return next();
+    }
+  } catch (err) {
+    // Not a valid custom JWT, fall back to Supabase auth for patients/existing users
+  }
+
   const { data, error } = await supabaseAdmin.auth.getUser(token);
 
   if (error || !data.user) {
+    console.error("[Auth Middleware] Supabase getUser error:", error);
+    console.error("[Auth Middleware] Extracted Token (first 20 chars):", token.substring(0, 20));
     return next(createHttpError(401, "Invalid or expired token"));
   }
 
-  let appUser = await prisma.user.findFirst({
+  // If the email ends with @patient.hrp.local, this is a patient login.
+  // Check Patient table FIRST to avoid accidentally matching a nurse.
+  const isPatientEmail = data.user.email?.endsWith("@patient.hrp.local");
+
+  if (isPatientEmail) {
+    const patientUser = await prisma.patient.findFirst({
+      where: { authId: data.user.id }
+    });
+
+    if (!patientUser) {
+      return next(createHttpError(403, "Patient is not provisioned in HRP."));
+    }
+
+    request.user = {
+      id: patientUser.id,
+      authId: data.user.id,
+      role: "patient",
+      phone: patientUser.phone ?? "",
+      facilityId: patientUser.facilityId
+    };
+
+    return next();
+  }
+
+  // Staff/nurse lookup — only reached for non-patient emails.
+  // Requires authId to be set during registration (no email fallback to prevent account hijacking).
+  const appUser = await prisma.user.findFirst({
     where: {
       authId: data.user.id,
       isActive: true
     }
   });
 
-  if (!appUser && data.user.email) {
-    appUser = await prisma.user.findFirst({
-      where: {
-        email: data.user.email,
-        isActive: true
-      }
-    });
-
-    if (appUser) {
-      await prisma.user.update({
-        where: { id: appUser.id },
-        data: { authId: data.user.id }
-      });
-    }
-  }
-
   if (!appUser) {
-    let patientUser = await prisma.patient.findFirst({
+    // Fallback: check Patient table for non-patient-email users too (e.g. manual signups)
+    const patientUser = await prisma.patient.findFirst({
       where: {
         authId: data.user.id
       }
     });
-
-    if (!patientUser && data.user.email) {
-      patientUser = await prisma.patient.findFirst({
-        where: {
-          email: data.user.email
-        }
-      });
-
-      if (patientUser) {
-        await prisma.patient.update({
-          where: { id: patientUser.id },
-          data: { authId: data.user.id }
-        });
-      }
-    }
 
     if (!patientUser) {
       return next(createHttpError(403, "User is not provisioned in HRP. Please sign up first."));
@@ -112,7 +137,7 @@ export async function requireAuth(request: Request, _response: Response, next: N
     request.user = {
       id: patientUser.id,
       authId: data.user.id,
-      role: "patient" as any,
+      role: "patient",
       phone: patientUser.phone ?? "",
       facilityId: patientUser.facilityId
     };

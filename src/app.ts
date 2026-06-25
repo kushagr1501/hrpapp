@@ -13,7 +13,9 @@ import { patientSelfRouter } from "./modules/patient-self/patient-self.routes.js
 import { referralsRouter } from "./modules/referrals/referrals.routes.js";
 import { reportsRouter } from "./modules/reports/reports.routes.js";
 import { visitRouter } from "./modules/visit/visit.routes.js";
+import { educationRouter } from "./modules/education/education.routes.js";
 import { vitalsRouter } from "./modules/vitals/vitals.routes.js";
+import { userRouter } from "./modules/user/user.routes.js";
 
 import rateLimit from "express-rate-limit";
 
@@ -23,14 +25,41 @@ export function createApp() {
   // Trust the first proxy to enable correct rate-limiting behind Render's load balancer
   app.set("trust proxy", 1);
 
+  // Parse ALLOWED_ORIGIN as a comma-separated list of trusted origins.
+  // NEVER use "*" with credentials: true — it enables cross-origin session hijacking.
+  const allowedOrigins = env.ALLOWED_ORIGIN
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   app.use(
     cors({
-      origin: env.ALLOWED_ORIGIN === "*" ? (origin, callback) => callback(null, true) : env.ALLOWED_ORIGIN,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (e.g. mobile apps, server-to-server)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error("Not allowed by CORS"));
+      },
       credentials: true
     })
   );
-  app.use(helmet());
-  app.use(express.json());
+
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", ...allowedOrigins],
+      }
+    },
+    crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
+  }));
+
+  // Limit request body to 100kb to prevent memory exhaustion DoS
+  app.use(express.json({ limit: "100kb" }));
 
   // General API Rate Limiter
   const apiLimiter = rateLimit({
@@ -66,7 +95,9 @@ export function createApp() {
 
   app.use("/api/auth", authRouter);
   app.use("/api/patient", patientSelfRouter);
+  app.use("/api/education", educationRouter);
   app.use("/api/patients", patientRouter);
+  app.use("/api/users", userRouter);
   app.use("/api", alertsRouter);
   app.use("/api", birthPlanRouter);
   app.use("/api", comorbiditiesRouter);

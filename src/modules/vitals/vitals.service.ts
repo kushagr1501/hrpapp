@@ -1,4 +1,4 @@
-import { AlertStatus, PatientStatus, Prisma, RiskSeverity, VisitType, type Comorbidity, type ObstetricHistory } from "@prisma/client";
+import { AlertStatus, PatientStatus, Prisma, VisitType, type Comorbidity, type ObstetricHistory } from "@prisma/client";
 import createHttpError from "http-errors";
 import { prisma } from "../../config/prisma.js";
 import type { AuthUser } from "../../types/auth.js";
@@ -16,20 +16,6 @@ function derivePatientStatus(currentStatus: PatientStatus, isHrp: boolean) {
   }
 
   return isHrp ? PatientStatus.high_risk : PatientStatus.normal;
-}
-
-function getAlertPriority(severity: RiskSeverity) {
-  switch (severity) {
-    case RiskSeverity.critical:
-      return "critical";
-    case RiskSeverity.high:
-      return "high";
-    case RiskSeverity.moderate:
-      return "normal";
-    case RiskSeverity.none:
-    default:
-      return "low";
-  }
 }
 
 function canAccessVisit(actor: AuthUser | undefined, visit: { patient: { assignedNurse: string | null } }) {
@@ -105,6 +91,10 @@ export const vitalsService = {
       throw createHttpError(404, "Visit not found");
     }
 
+    if (visit.isCompleted) {
+      throw createHttpError(409, "Vitals have already been recorded for this visit. To re-record, please create a new visit.");
+    }
+
     const activeRules = await prisma.riskRule.findMany({
       where: { isActive: true },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }]
@@ -156,7 +146,6 @@ export const vitalsService = {
           patientId: visit.patientId,
           visitId: visit.id,
           assessedBy: actor?.id,
-          overallSeverity: assessment.overallSeverity,
           isHrp: assessment.isHrp,
           triggeredRules: assessment.triggeredRules
         }
@@ -171,7 +160,6 @@ export const vitalsService = {
         where: { id: visit.patientId },
         data: {
           status: derivePatientStatus(visit.patient.status, assessment.isHrp),
-          riskSeverity: assessment.overallSeverity,
           isHrp: assessment.isHrp,
           hrpFlaggedAt
         },
@@ -237,10 +225,10 @@ export const vitalsService = {
               assignedTo: updatedPatient.assignedNurse,
               alertType: "new_hrp",
               title: `${updatedPatient.fullName} flagged as high-risk pregnancy`,
-              message: `Risk severity: ${assessment.overallSeverity}. ${assessment.triggeredRules
+              message: `Risk rules triggered: ${assessment.triggeredRules
                 .map((rule) => rule.ruleName)
                 .join(", ")}`,
-              priority: getAlertPriority(assessment.overallSeverity),
+              priority: "high",
               status: AlertStatus.active
             }
           });

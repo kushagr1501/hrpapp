@@ -1,4 +1,4 @@
-import { AlertStatus, PatientStatus, Prisma, RiskSeverity, UserRole, VisitType } from "@prisma/client";
+import { AlertStatus, PatientStatus, Prisma, UserRole, VisitType } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 import type { AuthUser } from "../../types/auth.js";
 import { buildHrpFollowupVisitWindows } from "../../utils/visit-windows.js";
@@ -60,20 +60,6 @@ function derivePatientStatus(currentStatus: PatientStatus, isHrp: boolean) {
   return isHrp ? PatientStatus.high_risk : PatientStatus.normal;
 }
 
-function getAlertPriority(severity: RiskSeverity) {
-  switch (severity) {
-    case RiskSeverity.critical:
-      return "critical";
-    case RiskSeverity.high:
-      return "high";
-    case RiskSeverity.moderate:
-      return "normal";
-    case RiskSeverity.none:
-    default:
-      return "low";
-  }
-}
-
 async function reassessPatientRisk(tx: Prisma.TransactionClient, patientId: string, actor?: AuthUser) {
   const patient = await tx.patient.findUnique({
     where: { id: patientId },
@@ -116,7 +102,6 @@ async function reassessPatientRisk(tx: Prisma.TransactionClient, patientId: stri
       visitId: latestVitals?.visitId,
       assessedBy: actor?.id,
       assessedAt,
-      overallSeverity: assessment.overallSeverity,
       isHrp: assessment.isHrp,
       triggeredRules: assessment.triggeredRules
     }
@@ -126,7 +111,6 @@ async function reassessPatientRisk(tx: Prisma.TransactionClient, patientId: stri
     where: { id: patientId },
     data: {
       status: derivePatientStatus(patient.status, assessment.isHrp),
-      riskSeverity: assessment.overallSeverity,
       isHrp: assessment.isHrp,
       hrpFlaggedAt
     }
@@ -172,10 +156,10 @@ async function reassessPatientRisk(tx: Prisma.TransactionClient, patientId: stri
           assignedTo: updatedPatient.assignedNurse,
           alertType: "new_hrp",
           title: `${updatedPatient.fullName} flagged as high-risk pregnancy`,
-          message: `Risk severity: ${assessment.overallSeverity}. ${assessment.triggeredRules
+          message: `Risk rules triggered: ${assessment.triggeredRules
             .map((rule) => rule.ruleName)
             .join(", ")}`,
-          priority: getAlertPriority(assessment.overallSeverity),
+          priority: "high",
           status: AlertStatus.active
         }
       });

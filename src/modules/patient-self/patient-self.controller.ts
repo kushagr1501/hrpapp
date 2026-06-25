@@ -51,41 +51,21 @@ export const patientSelfController = {
   },
 
   async birthPlan(request: Request, response: Response) {
-    const birthPlan = await patientSelfService.getBirthPlan(requireRequestUser(request));
+    const actor = requireRequestUser(request);
+    const patient = await patientSelfService.resolvePatient(actor);
 
-    if (birthPlan === null) {
+    if (!patient) {
       throw createHttpError(404, "Patient profile not found for current user");
     }
 
+    const birthPlan = await patientSelfService.getBirthPlan(actor);
+
+    // birthPlan being null just means it hasn't been created yet — return 200 with null
+    // so the mobile app can show an "Add Birth Plan" empty state.
     response.json({
       success: true,
-      data: birthPlan
+      data: birthPlan ?? null
     });
   },
 
-  async listKickCounts(request: Request, response: Response) {
-    const kickCounts = await patientSelfService.listKickCounts(requireRequestUser(request), request.query);
-
-    if (!kickCounts) {
-      throw createHttpError(404, "Patient profile not found for current user");
-    }
-
-    response.json({
-      success: true,
-      data: kickCounts
-    });
-  },
-
-  async upsertKickCount(request: Request, response: Response) {
-    const kickCount = await patientSelfService.upsertKickCount(requireRequestUser(request), request.body);
-
-    if (!kickCount) {
-      throw createHttpError(404, "Patient profile not found for current user");
-    }
-
-    response.status(201).json({
-      success: true,
-      data: kickCount
-    });
-  }
 };

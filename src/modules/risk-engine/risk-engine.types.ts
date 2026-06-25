@@ -1,4 +1,4 @@
-import type { Comorbidity, ObstetricHistory, RiskRule, RiskSeverity, Vitals } from "@prisma/client";
+import type { Comorbidity, ObstetricHistory, RiskRule, Vitals } from "@prisma/client";
 
 export type RuleOperator = "lt" | "gt" | "lte" | "gte" | "eq" | "neq" | "in";
 export type RuleSource = "vitals" | "obstetric_history" | "comorbidities";
@@ -55,13 +55,12 @@ export type TriggeredRule = {
   ruleId: string;
   ruleName: string;
   category: string;
-  severity: RiskSeverity;
+  isHrp: boolean;
 };
 
 export type RiskAssessmentResult = {
-  overallSeverity: RiskSeverity;
   isHrp: boolean;
   triggeredRules: TriggeredRule[];
 };
 
-export type RiskRuleRecord = Pick<RiskRule, "id" | "name" | "category" | "severity" | "priority" | "ruleDefinition">;
+export type RiskRuleRecord = Pick<RiskRule, "id" | "name" | "category" | "isHrp" | "priority" | "ruleDefinition">;

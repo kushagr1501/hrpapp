@@ -26,13 +26,6 @@ enum PatientStatus {
   closed
 }
 
-enum RiskSeverity {
-  none
-  moderate
-  high
-  critical
-}
-
 enum VisitType {
   registration
   anc_2
@@ -97,6 +90,13 @@ model User {
   ward          String?
   languagePref  String   @default("en")
   expoPushToken String?
+  
+  // Custom Auth Fields
+  pinHash             String?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  securityKeyHash     String?
+
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
 
@@ -108,6 +108,7 @@ model User {
   referrals        Referral[]
   alerts           Alert[]
   notificationLog  NotificationLog[]
+  assignedEducation PatientEducation[] @relation("AssignedEducation")
 }
 
 model Patient {
@@ -127,7 +128,7 @@ model Patient {
   gravida       Int?
   para          Int?
   status        PatientStatus @default(registered)
-  riskSeverity  RiskSeverity  @default(none)
+
   isHrp         Boolean       @default(false)
   hrpFlaggedAt  DateTime?
   assignedNurse String?
@@ -146,8 +147,8 @@ model Patient {
   referrals         Referral[]
   birthPlan         BirthPlan?
   alerts            Alert[]
-  kickCounts        KickCount[]
   notificationLogs  NotificationLog[]
+  assignedEducation PatientEducation[]
 
   @@index([status])
   @@index([assignedNurse])
@@ -229,6 +230,8 @@ model ObstetricHistory {
   babyStatus      String?
 
   patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
 }
 
 model Comorbidity {
@@ -240,6 +243,9 @@ model Comorbidity {
   notes         String?
 
   patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([patientId, isActive])
 }
 
 model RiskRule {
@@ -248,7 +254,7 @@ model RiskRule {
   description    String?
   category       String
   ruleDefinition Json
-  severity       RiskSeverity
+  isHrp          Boolean      @default(true)
   isActive       Boolean      @default(true)
   priority       Int          @default(0)
   createdAt      DateTime     @default(now())
@@ -260,7 +266,7 @@ model RiskAssessment {
   visitId         String?
   assessedBy      String?
   assessedAt      DateTime     @default(now())
-  overallSeverity RiskSeverity
+
   isHrp           Boolean
   triggeredRules  Json
 
@@ -356,17 +362,43 @@ model NotificationLog {
   patient Patient? @relation(fields: [patientId], references: [id])
 }
 
-model KickCount {
-  id              String    @id @default(uuid())
+enum ContentType {
+  youtube_video
+  article_text
+  pdf_document
+  external_link
+}
+
+model EducationalContent {
+  id           String      @id @default(uuid())
+  title        String
+  description  String?
+  contentType  ContentType
+  contentUrl   String?
+  contentBody  String?
+  thumbnailUrl String?
+  category     String?
+  language     String      @default("en")
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  patientAssignments PatientEducation[]
+}
+
+model PatientEducation {
+  id              String             @id @default(uuid())
   patientId       String
-  date            DateTime
-  count           Int
-  durationMinutes Int?
-  startedAt       DateTime?
-  notes           String?
-  createdAt       DateTime  @default(now())
+  contentId       String
+  assignedBy      String?
+  assignedAt      DateTime           @default(now())
+  viewedAt        DateTime?
+  status          String             @default("pending") // pending, viewed
 
-  patient Patient @relation(fields: [patientId], references: [id])
+  patient         Patient            @relation(fields: [patientId], references: [id])
+  content         EducationalContent @relation(fields: [contentId], references: [id])
+  assignedByUser  User?              @relation("AssignedEducation", fields: [assignedBy], references: [id])
 
-  @@unique([patientId, date])
+  @@index([patientId])
+  @@index([contentId])
 }

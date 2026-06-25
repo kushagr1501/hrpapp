@@ -149,7 +149,13 @@ export const reportsService = {
     const scopedPatientWhere = patientWhere(actor, input.facilityId);
     const scopedReferralWhere = referralWhere(actor, input.facilityId);
 
-    const [summary, hrpPatients, pendingReferrals] = await Promise.all([
+    // 6 months ago logic
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0,0,0,0);
+
+    const [summary, hrpPatients, pendingReferrals, riskGroups, recentPatients] = await Promise.all([
       this.getSummary(input, actor),
       prisma.patient.findMany({
         where: { ...scopedPatientWhere, isHrp: true },
@@ -163,7 +169,7 @@ export const reportsService = {
             select: {
               fullName: true,
               phone: true,
-              riskSeverity: true
+              isHrp: true
             }
           },
           fromFacility: {
@@ -172,13 +178,55 @@ export const reportsService = {
         },
         orderBy: { createdAt: "desc" },
         take: 50
+      }),
+      prisma.patient.groupBy({
+        by: ['isHrp'],
+        where: scopedPatientWhere,
+        _count: true
+      }),
+      prisma.patient.findMany({
+        where: {
+          ...scopedPatientWhere,
+          createdAt: { gte: sixMonthsAgo }
+        },
+        select: { createdAt: true }
       })
     ]);
+
+    const riskDistribution = riskGroups.map(g => ({
+      name: g.isHrp ? 'HRP' : 'Normal',
+      value: g._count,
+      color: g.isHrp ? '#f43f5e' : '#10b981'
+    }));
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const intakeMap = new Map<string, number>();
+    
+    // Initialize last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      intakeMap.set(months[d.getMonth()], 0);
+    }
+
+    recentPatients.forEach(p => {
+      const monthName = months[p.createdAt.getMonth()];
+      if (intakeMap.has(monthName)) {
+        intakeMap.set(monthName, intakeMap.get(monthName)! + 1);
+      }
+    });
+
+    const intakeTrend = Array.from(intakeMap.entries()).map(([name, newPatients]) => ({
+      name,
+      new: newPatients
+    }));
 
     return {
       summary,
       hrpPatients,
-      pendingReferrals
+      pendingReferrals,
+      riskDistribution,
+      intakeTrend
     };
   }
 };

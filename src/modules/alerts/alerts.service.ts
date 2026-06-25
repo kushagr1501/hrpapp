@@ -46,6 +46,36 @@ async function materializeOverdueVisitAlerts(actor?: AuthUser) {
     }
   });
 
+  if (overdueVisits.length === 0) {
+    return;
+  }
+
+  // Bulk-fetch all existing overdue_visit alerts in one query instead of N+1
+  const patientIds = [...new Set(overdueVisits.map((v) => v.patientId))];
+  const existingAlerts = await prisma.alert.findMany({
+    where: {
+      patientId: { in: patientIds },
+      alertType: "overdue_visit",
+      status: {
+        in: [AlertStatus.active, AlertStatus.acknowledged]
+      }
+    },
+    select: {
+      patientId: true,
+      expectedVisitType: true,
+      expectedByDate: true
+    }
+  });
+
+  // Build a set of dedup keys for O(1) lookup
+  const existingKeys = new Set(
+    existingAlerts.map(
+      (a) => `${a.patientId}|${a.expectedVisitType}|${a.expectedByDate?.toISOString() ?? ""}`
+    )
+  );
+
+  const alertsToCreate: Parameters<typeof prisma.alert.create>[0]["data"][] = [];
+
   for (const visit of overdueVisits) {
     const assignedTo = visit.patient.assignedNurse;
     const expectedByDate = visit.scheduledDate ?? visit.windowEnd;
@@ -54,41 +84,48 @@ async function materializeOverdueVisitAlerts(actor?: AuthUser) {
       continue;
     }
 
-    const existingAlert = await prisma.alert.findFirst({
-      where: {
-        patientId: visit.patientId,
-        assignedTo,
-        alertType: "overdue_visit",
-        expectedVisitType: visit.visitType,
-        expectedByDate,
-        status: {
-          in: [AlertStatus.active, AlertStatus.acknowledged]
-        }
-      },
-      select: { id: true }
-    });
-
-    if (existingAlert) {
+    const key = `${visit.patientId}|${visit.visitType}|${expectedByDate.toISOString()}`;
+    if (existingKeys.has(key)) {
       continue;
     }
 
-    const alert = await prisma.alert.create({
-      data: {
-        patientId: visit.patientId,
-        assignedTo,
-        alertType: "overdue_visit",
-        title: `${visit.patient.fullName} missed ${visit.visitType.replace("_", " ").toUpperCase()}`,
-        message: `Visit was due by ${expectedByDate.toLocaleDateString("en-IN")}.`,
-        priority: "high",
-        expectedVisitType: visit.visitType,
-        expectedByDate,
-        daysOverdue: daysBetween(today, expectedByDate),
-        status: AlertStatus.active
-      }
+    alertsToCreate.push({
+      patientId: visit.patientId,
+      assignedTo,
+      alertType: "overdue_visit",
+      title: `${visit.patient.fullName} missed ${visit.visitType.replace("_", " ").toUpperCase()}`,
+      message: `Visit was due by ${expectedByDate.toLocaleDateString("en-IN")}.`,
+      priority: "high",
+      expectedVisitType: visit.visitType,
+      expectedByDate,
+      daysOverdue: daysBetween(today, expectedByDate),
+      status: AlertStatus.active
     });
-
-    await notificationService.notifyAlert(alert.id);
   }
+
+  if (alertsToCreate.length === 0) {
+    return;
+  }
+
+  // Create all new alerts in a single transaction
+  await prisma.$transaction(
+    alertsToCreate.map((data) => prisma.alert.create({ data }))
+  );
+
+  // Fire push notifications for newly created alerts (fetch them back to get IDs)
+  const newAlerts = await prisma.alert.findMany({
+    where: {
+      patientId: { in: alertsToCreate.map((a) => a.patientId as string) },
+      alertType: "overdue_visit",
+      status: AlertStatus.active,
+      createdAt: { gte: today }
+    },
+    select: { id: true }
+  });
+
+  await Promise.allSettled(
+    newAlerts.map((alert) => notificationService.notifyAlert(alert.id))
+  );
 }
 
 export const alertsService = {
