@@ -31,6 +31,10 @@ enum VisitType {
   anc_2
   anc_3
   anc_4
+  anc_5
+  anc_6
+  anc_7
+  anc_8
   followup
   referral
   delivery

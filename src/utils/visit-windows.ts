@@ -3,8 +3,10 @@ import { calculateEddFromLmp } from "./edd.js";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DAYS_PER_WEEK = 7;
 
+export type VisitTypeEnum = "registration" | "anc_2" | "anc_3" | "anc_4" | "anc_5" | "anc_6" | "anc_7" | "anc_8" | "followup";
+
 export type VisitWindow = {
-  visitType: "registration" | "anc_2" | "anc_3" | "anc_4" | "followup";
+  visitType: VisitTypeEnum;
   visitNumber: number;
   windowStart: Date;
   windowEnd: Date;
@@ -27,30 +29,57 @@ export function buildAncVisitWindows(lmp: Date, registeredAt: Date = new Date())
       visitType: "registration",
       visitNumber: 1,
       windowStart: registeredAt,
-      windowEnd: addWeeks(lmp, 14),
+      windowEnd: addWeeks(lmp, 12),
       scheduledDate: registeredAt
     },
     {
       visitType: "anc_2",
       visitNumber: 2,
-      windowStart: addWeeks(lmp, 14),
-      windowEnd: addWeeks(lmp, 26),
+      windowStart: addWeeks(lmp, 19),
+      windowEnd: addWeeks(lmp, 21),
       scheduledDate: addWeeks(lmp, 20)
     },
     {
-      // Window starts at week 26 (immediately after ANC 2 ends — no gap)
       visitType: "anc_3",
       visitNumber: 3,
-      windowStart: addWeeks(lmp, 26),
-      windowEnd: addWeeks(lmp, 32),
-      scheduledDate: addWeeks(lmp, 30)
+      windowStart: addWeeks(lmp, 25),
+      windowEnd: addWeeks(lmp, 27),
+      scheduledDate: addWeeks(lmp, 26)
     },
     {
       visitType: "anc_4",
       visitNumber: 4,
-      windowStart: addWeeks(lmp, 36),
-      windowEnd: edd,
+      windowStart: addWeeks(lmp, 29),
+      windowEnd: addWeeks(lmp, 31),
+      scheduledDate: addWeeks(lmp, 30)
+    },
+    {
+      visitType: "anc_5",
+      visitNumber: 5,
+      windowStart: addWeeks(lmp, 33),
+      windowEnd: addWeeks(lmp, 35),
+      scheduledDate: addWeeks(lmp, 34)
+    },
+    {
+      visitType: "anc_6",
+      visitNumber: 6,
+      windowStart: addWeeks(lmp, 35),
+      windowEnd: addWeeks(lmp, 37),
+      scheduledDate: addWeeks(lmp, 36)
+    },
+    {
+      visitType: "anc_7",
+      visitNumber: 7,
+      windowStart: addWeeks(lmp, 37),
+      windowEnd: addWeeks(lmp, 39),
       scheduledDate: addWeeks(lmp, 38)
+    },
+    {
+      visitType: "anc_8",
+      visitNumber: 8,
+      windowStart: addWeeks(lmp, 39),
+      windowEnd: edd,
+      scheduledDate: addWeeks(lmp, 40)
     }
   ];
 }
