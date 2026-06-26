@@ -8,7 +8,7 @@ import { reportSummaryQuerySchema } from "./reports.validation.js";
 export const reportsRouter = Router();
 
 reportsRouter.use(requireAuth);
-reportsRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+reportsRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 reportsRouter.get("/reports/summary", validate(reportSummaryQuerySchema, "query"), reportsController.summary);
 reportsRouter.get("/reports/dashboard", validate(reportSummaryQuerySchema, "query"), reportsController.dashboard);

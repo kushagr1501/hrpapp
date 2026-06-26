@@ -8,7 +8,7 @@ import { createVitalsSchema, patientParamsSchema, visitParamsSchema } from "./vi
 export const vitalsRouter = Router();
 
 vitalsRouter.use(requireAuth);
-vitalsRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+vitalsRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 vitalsRouter.post("/visits/:id/vitals", validate(visitParamsSchema, "params"), validate(createVitalsSchema), vitalsController.record);
 vitalsRouter.get("/patients/:id/vitals", validate(patientParamsSchema, "params"), vitalsController.listByPatient);

@@ -14,7 +14,7 @@ import {
 export const visitRouter = Router();
 
 visitRouter.use(requireAuth);
-visitRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+visitRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 visitRouter.get("/visits/overdue", visitController.listOverdue);
 visitRouter.get("/visits/upcoming", validate(upcomingVisitsQuerySchema, "query"), visitController.listUpcoming);

@@ -10,7 +10,6 @@ datasource db {
 
 enum UserRole {
   nurse
-  doctor
   admin
   superadmin
   patient
@@ -119,7 +118,6 @@ model Patient {
   id            String        @id @default(uuid())
   authId        String?       @unique
   userId        String?       @unique
-  email         String?       @unique
   fullName      String
   age           Int?
   phone         String?

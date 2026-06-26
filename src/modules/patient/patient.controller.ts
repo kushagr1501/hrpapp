@@ -65,7 +65,6 @@ export const patientController = {
           mcpCardNumber: request.body.mcpCardNumber,
           status: "registered",
           authId: authId,
-          email: dummyEmail,
           assignedNurseUser: request.body.assignedNurse
             ? { connect: { id: request.body.assignedNurse } }
             : request.user

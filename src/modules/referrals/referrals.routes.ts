@@ -13,7 +13,7 @@ import {
 export const referralsRouter = Router();
 
 referralsRouter.use(requireAuth);
-referralsRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+referralsRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 referralsRouter.get(
   "/patients/:id/referrals",

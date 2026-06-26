@@ -13,7 +13,7 @@ import {
 export const patientRouter = Router();
 
 patientRouter.use(requireAuth);
-patientRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+patientRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 patientRouter.get("/", validate(patientListQuerySchema, "query"), patientController.list);
 patientRouter.post("/", validate(createPatientSchema), patientController.create);

@@ -8,7 +8,7 @@ import { alertListQuerySchema, alertParamsSchema } from "./alerts.validation.js"
 export const alertsRouter = Router();
 
 alertsRouter.use(requireAuth);
-alertsRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+alertsRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 alertsRouter.get("/alerts", validate(alertListQuerySchema, "query"), alertsController.list);
 alertsRouter.patch("/alerts/:id/acknowledge", validate(alertParamsSchema, "params"), alertsController.acknowledge);

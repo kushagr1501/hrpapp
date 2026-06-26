@@ -11,7 +11,7 @@ userRouter.use(requireAuth);
 
 userRouter.get(
   "/:id",
-  requireRole(["nurse", "doctor", "admin", "superadmin"]),
+  requireRole(["nurse", "admin", "superadmin"]),
   validate(userParamsSchema, "params"),
   userController.get
 );

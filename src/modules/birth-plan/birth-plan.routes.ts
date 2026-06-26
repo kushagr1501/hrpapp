@@ -8,7 +8,7 @@ import { patientBirthPlanParamsSchema, upsertBirthPlanSchema } from "./birth-pla
 export const birthPlanRouter = Router();
 
 birthPlanRouter.use(requireAuth);
-birthPlanRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+birthPlanRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 birthPlanRouter.get(
   "/patients/:id/birth-plan",

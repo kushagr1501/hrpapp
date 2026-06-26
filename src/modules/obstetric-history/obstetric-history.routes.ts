@@ -13,7 +13,7 @@ import {
 export const obstetricHistoryRouter = Router();
 
 obstetricHistoryRouter.use(requireAuth);
-obstetricHistoryRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+obstetricHistoryRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 obstetricHistoryRouter.get(
   "/patients/:id/obstetric-history",

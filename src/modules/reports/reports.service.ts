@@ -11,7 +11,7 @@ function startOfToday() {
 function patientWhere(actor?: AuthUser, facilityId?: string) {
   return {
     assignedNurse: actor?.role === UserRole.nurse ? actor.id : undefined,
-    facilityId: facilityId ?? (actor?.role === UserRole.doctor ? actor.facilityId ?? undefined : undefined)
+    facilityId: facilityId ?? undefined
   };
 }
 

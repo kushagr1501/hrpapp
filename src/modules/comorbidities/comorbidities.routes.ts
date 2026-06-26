@@ -13,7 +13,7 @@ import {
 export const comorbiditiesRouter = Router();
 
 comorbiditiesRouter.use(requireAuth);
-comorbiditiesRouter.use(requireRole(["nurse", "doctor", "admin", "superadmin"]));
+comorbiditiesRouter.use(requireRole(["nurse", "admin", "superadmin"]));
 
 comorbiditiesRouter.get(
   "/patients/:id/comorbidities",
