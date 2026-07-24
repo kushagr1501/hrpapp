@@ -31,6 +31,9 @@ export function createApp() {
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+  
+  // Explicitly allow the deployed frontend URL
+  allowedOrigins.push("http://hrp.troothpaste.io", "https://hrp.troothpaste.io");
 
   app.use(
     cors({
