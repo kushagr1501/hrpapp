@@ -55,6 +55,7 @@ export function initializeCronJobs() {
         // 2. Patient Notification: Overdue Visit (Exactly 1 day after missed visit)
         if (visitDate.getTime() === yesterday.getTime()) {
           if (p.userId) {
+            
             await notificationService.notifyPatientOverdueVisit(p.userId).catch(console.error);
           }
         }

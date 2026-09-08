@@ -366,6 +366,7 @@ model NotificationLog {
 
 enum ContentType {
   youtube_video
+  google_drive_video
   article_text
   pdf_document
   external_link
