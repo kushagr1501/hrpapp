@@ -50,9 +50,10 @@ export const patientController = {
 
       if (error || !data.user) {
         console.error("Supabase auth error:", error);
-        if (!error?.message?.includes("already registered")) {
-          throw createHttpError(400, error?.message ?? "Failed to create Supabase user for patient");
+        if (error?.message?.includes("already registered") || error?.message?.includes("already been registered")) {
+          throw createHttpError(409, "A patient with this phone number is already registered.");
         }
+        throw createHttpError(400, error?.message ?? "Failed to create Supabase user for patient");
       } else {
         authId = data.user.id;
       }
