@@ -52,7 +52,17 @@ export const authController = {
 
   async registerStaff(request: Request, response: Response) {
     const { fullName, phone, pin, role, facilityId } = request.body;
-    const user = await authService.registerStaff(fullName, phone, pin, role, facilityId);
+    const callerRole = request.user!.role;
+    const callerFacilityId = request.user!.facilityId;
+    const user = await authService.registerStaff(
+      fullName,
+      phone,
+      pin,
+      role,
+      facilityId,
+      callerRole,
+      callerFacilityId
+    );
     
     response.status(201).json({
       success: true,

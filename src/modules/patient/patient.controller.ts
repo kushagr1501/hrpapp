@@ -8,8 +8,19 @@ function getRouteParam(value: string | string[]) {
 
 export const patientController = {
   async list(request: Request, response: Response) {
-    const nurseScopedUserId = request.user?.role === "nurse" ? request.user.id : undefined;
-    const patients = await patientService.list(request.query, nurseScopedUserId);
+    const role = request.user?.role;
+    // Nurses: scoped to their assigned patients only
+    const nurseScopedUserId = role === "nurse" ? request.user!.id : undefined;
+    // Admin: scoped to their facility — unless facilityId is already in the query
+    const facilityScope =
+      role === "admin" && !request.query.facilityId
+        ? request.user!.facilityId ?? undefined
+        : undefined;
+
+    const patients = await patientService.list(
+      { ...request.query, facilityId: request.query.facilityId as string ?? facilityScope },
+      nurseScopedUserId
+    );
 
     response.json({
       success: true,

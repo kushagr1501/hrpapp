@@ -1,4 +1,4 @@
-import { PatientStatus, ReferralStatus, UserRole } from "@prisma/client";
+import { PatientStatus, ReferralStatus, UserRole, AlertStatus } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 import type { AuthUser } from "../../types/auth.js";
 
@@ -9,9 +9,13 @@ function startOfToday() {
 }
 
 function patientWhere(actor?: AuthUser, facilityId?: string) {
+  const effectiveFacilityId = actor?.role !== UserRole.superadmin && actor?.facilityId 
+    ? actor.facilityId 
+    : facilityId;
+
   return {
     assignedNurse: actor?.role === UserRole.nurse ? actor.id : undefined,
-    facilityId: facilityId ?? undefined
+    facilityId: effectiveFacilityId ?? undefined
   };
 }
 
@@ -33,6 +37,10 @@ export const reportsService = {
     const scopedPatientWhere = patientWhere(actor, input.facilityId);
     const scopedVisitWhere = visitWhere(actor, input.facilityId);
     const scopedReferralWhere = referralWhere(actor, input.facilityId);
+
+    const effectiveFacilityId = actor?.role !== UserRole.superadmin && actor?.facilityId 
+      ? actor.facilityId 
+      : input.facilityId;
 
     const [
       totalPatients,
@@ -64,7 +72,7 @@ export const reportsService = {
         where: {
           role: UserRole.nurse,
           id: actor?.role === UserRole.nurse ? actor.id : undefined,
-          facilityId: input.facilityId
+          facilityId: effectiveFacilityId
         },
         select: {
           id: true,
@@ -72,8 +80,25 @@ export const reportsService = {
           facilityId: true,
           _count: {
             select: {
-              assignedPatients: true,
-              alerts: true
+              assignedPatients: {
+                where: {
+                  facilityId: effectiveFacilityId,
+                  status: {
+                    notIn: [PatientStatus.closed, PatientStatus.delivered, PatientStatus.post_delivery]
+                  }
+                }
+              },
+              alerts: {
+                where: {
+                  status: AlertStatus.active,
+                  patient: {
+                    facilityId: effectiveFacilityId,
+                    status: {
+                      notIn: [PatientStatus.closed, PatientStatus.delivered, PatientStatus.post_delivery]
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -81,7 +106,7 @@ export const reportsService = {
       }),
       prisma.facility.findMany({
         where: {
-          id: input.facilityId
+          id: effectiveFacilityId
         },
         select: {
           id: true,

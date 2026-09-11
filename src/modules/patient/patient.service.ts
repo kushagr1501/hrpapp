@@ -25,14 +25,22 @@ function buildPatientWhereClause(filters: PatientListFilters, nurseId?: string):
 }
 
 function buildScopedPatientWhere(id: string, actor?: AuthUser): Prisma.PatientWhereInput {
-  if (!actor || actor.role !== UserRole.nurse) {
+  // SuperAdmin sees all patients
+  if (!actor || actor.role === "superadmin") {
     return { id };
   }
 
-  return {
-    id,
-    assignedNurse: actor.id
-  };
+  // Nurse: can only see patients assigned to them
+  if (actor.role === UserRole.nurse) {
+    return { id, assignedNurse: actor.id };
+  }
+
+  // Admin: scoped to their facility
+  if (actor.role === UserRole.admin && actor.facilityId) {
+    return { id, facilityId: actor.facilityId };
+  }
+
+  return { id };
 }
 
 export const patientService = {

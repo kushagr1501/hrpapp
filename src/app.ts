@@ -16,6 +16,7 @@ import { visitRouter } from "./modules/visit/visit.routes.js";
 import { educationRouter } from "./modules/education/education.routes.js";
 import { vitalsRouter } from "./modules/vitals/vitals.routes.js";
 import { userRouter } from "./modules/user/user.routes.js";
+import { adminRouter } from "./modules/admin/admin.routes.js";
 
 import rateLimit from "express-rate-limit";
 
@@ -97,6 +98,7 @@ export function createApp() {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/admin", adminRouter);
   app.use("/api/patient", patientSelfRouter);
   app.use("/api/education", educationRouter);
   app.use("/api/patients", patientRouter);

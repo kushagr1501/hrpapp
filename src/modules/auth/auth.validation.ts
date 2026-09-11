@@ -9,7 +9,7 @@ export const loginSchema = z.object({
 
 export const loginPinSchema = z.object({
   phone: z.string().min(10, "Valid phone number required"),
-  pin: z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits")
+  pin: z.string().min(4, "PIN must be at least 4 characters")
 });
 
 export const generateRecoverySchema = z.object({
@@ -25,7 +25,7 @@ export const resetPinSchema = z.object({
 export const registerStaffSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   phone: z.string().min(10, "Valid phone number required"),
-  pin: z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
+  pin: z.string().min(4, "PIN must be at least 4 characters"),
   role: z.nativeEnum(UserRole),
   facilityId: z.string().optional()
 });

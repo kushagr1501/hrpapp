@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { userController } from "./user.controller.js";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { requireRole } from "../../middleware/rbac.middleware.js";
+import { requireRole, requireFacilityScope } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { userParamsSchema, updateUserSchema, updatePasswordSchema } from "./user.validation.js";
 
 export const userRouter = Router();
 
 userRouter.use(requireAuth);
+userRouter.use(requireFacilityScope);
 
 userRouter.get(
   "/:id",

@@ -12,9 +12,11 @@ authRouter.post("/login/pin", validate(loginPinSchema), authController.loginPin)
 authRouter.post("/recovery/generate", requireAuth, requireRole(["admin", "superadmin"]), validate(generateRecoverySchema), authController.generateRecovery);
 authRouter.post("/recovery/reset", validate(resetPinSchema), authController.resetPin);
 
-// Registration is made public to allow the Web Dashboard's public form to work
+// Registration requires authentication — only admin or superadmin may register staff
 authRouter.post(
   "/register/staff",
+  requireAuth,
+  requireRole(["admin", "superadmin"]),
   validate(registerStaffSchema),
   authController.registerStaff
 );

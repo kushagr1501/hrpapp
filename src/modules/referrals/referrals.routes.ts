@@ -1,6 +1,6 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { requireRole } from "../../middleware/rbac.middleware.js";
+import { requireRole, requireFacilityScope } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { referralsController } from "./referrals.controller.js";
 import {
@@ -14,6 +14,7 @@ export const referralsRouter = Router();
 
 referralsRouter.use(requireAuth);
 referralsRouter.use(requireRole(["nurse", "admin", "superadmin"]));
+referralsRouter.use(requireFacilityScope);
 
 referralsRouter.get(
   "/patients/:id/referrals",

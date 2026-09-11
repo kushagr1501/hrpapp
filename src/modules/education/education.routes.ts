@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { requireRole } from "../../middleware/rbac.middleware.js";
+import { requireRole, requireFacilityScope } from "../../middleware/rbac.middleware.js";
 import { educationController } from "./education.controller.js";
 
 export const educationRouter = Router();
 
 educationRouter.use(requireAuth);
+educationRouter.use(requireFacilityScope);
 
 educationRouter.get("/active", educationController.listActive);
 educationRouter.get("/", educationController.listAll);

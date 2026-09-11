@@ -1,6 +1,6 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { requireRole } from "../../middleware/rbac.middleware.js";
+import { requireRole, requireFacilityScope } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { obstetricHistoryController } from "./obstetric-history.controller.js";
 import {
@@ -14,6 +14,7 @@ export const obstetricHistoryRouter = Router();
 
 obstetricHistoryRouter.use(requireAuth);
 obstetricHistoryRouter.use(requireRole(["nurse", "admin", "superadmin"]));
+obstetricHistoryRouter.use(requireFacilityScope);
 
 obstetricHistoryRouter.get(
   "/patients/:id/obstetric-history",

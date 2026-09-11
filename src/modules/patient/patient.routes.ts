@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.middleware.js";
-import { requireRole } from "../../middleware/rbac.middleware.js";
+import { requireRole, requireFacilityScope } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { patientController } from "./patient.controller.js";
 import {
@@ -14,6 +14,7 @@ export const patientRouter = Router();
 
 patientRouter.use(requireAuth);
 patientRouter.use(requireRole(["nurse", "admin", "superadmin"]));
+patientRouter.use(requireFacilityScope);
 
 patientRouter.get("/", validate(patientListQuerySchema, "query"), patientController.list);
 patientRouter.post("/", validate(createPatientSchema), patientController.create);

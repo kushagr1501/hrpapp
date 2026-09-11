@@ -73,6 +73,7 @@ model Facility {
   contactPhone String?
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
+  createdBy    String?      // superadmin user ID who provisioned this facility
 
   users         User[]
   patients      Patient[]

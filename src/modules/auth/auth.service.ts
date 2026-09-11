@@ -64,7 +64,34 @@ export const authService = {
     };
   },
 
-  async registerStaff(fullName: string, phone: string, pin: string, role: UserRole, facilityId?: string) {
+  async registerStaff(
+    fullName: string,
+    phone: string,
+    pin: string,
+    role: UserRole,
+    facilityId?: string,
+    callerRole?: string,
+    callerFacilityId?: string | null
+  ) {
+    // ── Role-creation enforcement ──────────────────────────────────────────────
+    // Nurses cannot create any staff accounts
+    if (callerRole === "nurse") {
+      throw createHttpError(403, "Nurses are not permitted to register staff accounts.");
+    }
+
+    // Admins can only create nurses, auto-scoped to their own facility
+    if (callerRole === "admin") {
+      if (role !== "nurse") {
+        throw createHttpError(403, "Admins can only register nurse accounts.");
+      }
+      // Force the new nurse into the admin's facility — ignore any facilityId in the body
+      facilityId = callerFacilityId ?? undefined;
+    }
+
+    // Superadmin can create anyone — facilityId comes from request body
+    // (already set above for admin case; for superadmin, use provided facilityId)
+    // ──────────────────────────────────────────────────────────────────────────
+
     const pinHash = await bcrypt.hash(pin, 10);
     
     try {
