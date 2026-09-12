@@ -177,7 +177,8 @@ export const authService = {
     const patient = await prisma.patient.findUnique({
       where: { id: userId },
       include: {
-        facility: true
+        facility: true,
+        assignedNurseUser: true
       }
     });
 
@@ -204,36 +205,61 @@ export const authService = {
   },
 
   async loginWithPin(phone: string, pin: string) {
-    const user = await prisma.user.findUnique({ where: { phone }, include: { facility: true } });
-    if (!user) throw createHttpError(404, "User not found");
-    if (!user.pinHash) throw createHttpError(400, "PIN not set up for this user. Please contact admin for recovery.");
-    
-    if (user.lockedUntil && new Date() < user.lockedUntil) {
-      throw createHttpError(429, "Account is temporarily locked. Please try again later.");
-    }
-    
-    const isValid = await bcrypt.compare(pin, user.pinHash);
-    if (!isValid) {
-      const attempts = user.failedLoginAttempts + 1;
-      const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { failedLoginAttempts: attempts, lockedUntil }
-      });
-      if (lockedUntil) {
-        throw createHttpError(429, "Too many failed attempts. Account locked for 15 minutes.");
-      }
-      throw createHttpError(401, "Invalid PIN");
-    }
-    
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { failedLoginAttempts: 0, lockedUntil: null }
-    });
-    
     const jwtSecret = env.JWT_SECRET || "fallback-secret-for-dev";
-    const token = jwt.sign({ id: user.id, role: user.role, type: "custom-staff-auth" }, jwtSecret, { expiresIn: '30d' });
-    return { token, user };
+
+    // 1. Try staff (User table) first
+    const staffUser = await prisma.user.findUnique({ where: { phone }, include: { facility: true } });
+
+    if (staffUser) {
+      if (!staffUser.pinHash) throw createHttpError(400, "PIN not set up for this user. Please contact admin for recovery.");
+
+      if (staffUser.lockedUntil && new Date() < staffUser.lockedUntil) {
+        throw createHttpError(429, "Account is temporarily locked. Please try again later.");
+      }
+
+      const isValid = await bcrypt.compare(pin, staffUser.pinHash);
+      if (!isValid) {
+        const attempts = staffUser.failedLoginAttempts + 1;
+        const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+        await prisma.user.update({
+          where: { id: staffUser.id },
+          data: { failedLoginAttempts: attempts, lockedUntil }
+        });
+        if (lockedUntil) throw createHttpError(429, "Too many failed attempts. Account locked for 15 minutes.");
+        throw createHttpError(401, "Invalid PIN");
+      }
+
+      await prisma.user.update({
+        where: { id: staffUser.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null }
+      });
+
+      const token = jwt.sign(
+        { id: staffUser.id, role: staffUser.role, type: "custom-staff-auth" },
+        jwtSecret,
+        { expiresIn: '30d' }
+      );
+      return { token, user: staffUser };
+    }
+
+    // 2. Fall back to Patient table
+    const patient = await prisma.patient.findFirst({
+      where: { phone },
+      include: { facility: true, assignedNurseUser: true }
+    });
+
+    if (!patient) throw createHttpError(404, "No account found for this phone number.");
+    if (!patient.pinHash) throw createHttpError(400, "PIN not set up for this patient. Please contact the clinic.");
+
+    const isValid = await bcrypt.compare(pin, patient.pinHash);
+    if (!isValid) throw createHttpError(401, "Invalid PIN");
+
+    const token = jwt.sign(
+      { id: patient.id, role: "patient", type: "custom-patient-auth" },
+      jwtSecret,
+      { expiresIn: '30d' }
+    );
+    return { token, user: { ...patient, role: "patient" as const } };
   },
 
   async generateRecoveryKey(userId: string) {

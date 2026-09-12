@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import createHttpError from "http-errors";
+import bcrypt from "bcryptjs";
 import { patientService } from "./patient.service.js";
 
 function getRouteParam(value: string | string[]) {
@@ -30,8 +31,9 @@ export const patientController = {
 
   async create(request: Request, response: Response) {
     const parsedLmp = request.body.lmp ? new Date(request.body.lmp) : undefined;
-    
+
     let generatedPin: string | undefined;
+    let pinHash: string | undefined;
     let dummyEmail: string | undefined;
     let authId: string | undefined;
 
@@ -41,24 +43,36 @@ export const patientController = {
       generatedPin = phoneStr.length >= 4 ? phoneStr.slice(-4) : Math.floor(1000 + Math.random() * 9000).toString();
       dummyEmail = `${phoneStr}@patient.hrp.local`;
 
-      const { supabaseAdmin } = await import("../../config/supabase.js");
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: dummyEmail,
-        password: generatedPin,
-        email_confirm: true
-      });
+      // Hash the PIN for storage in the Patient table — this allows PIN-based
+      // custom JWT login without requiring the Supabase client on the patient device.
+      pinHash = await bcrypt.hash(generatedPin, 10);
 
-      if (error || !data.user) {
-        console.error("Supabase auth error:", error);
-        if (error?.message?.includes("already registered") || error?.message?.includes("already been registered")) {
-          throw createHttpError(409, "A patient with this phone number is already registered.");
+      // Also create a Supabase auth record (best-effort — non-fatal if Supabase is down).
+      try {
+        const { supabaseAdmin } = await import("../../config/supabase.js");
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: dummyEmail,
+          password: generatedPin,
+          email_confirm: true
+        });
+
+        if (error || !data.user) {
+          if (
+            error?.message?.includes("already registered") ||
+            error?.message?.includes("already been registered")
+          ) {
+            throw createHttpError(409, "A patient with this phone number is already registered.");
+          }
+          // Non-fatal: DB pinHash login still works even if Supabase auth record is absent.
+          console.warn("[patient.create] Supabase user creation failed (non-fatal):", error?.message);
+        } else {
+          authId = data.user.id;
         }
-        throw createHttpError(400, error?.message ?? "Failed to create Supabase user for patient");
-      } else {
-        authId = data.user.id;
+      } catch (err: any) {
+        // Re-throw 409 conflicts; swallow other Supabase errors.
+        if (err.status === 409) throw err;
+        console.warn("[patient.create] Supabase unavailable, pinHash-only auth will be used:", err.message);
       }
-    } else {
-      // No phone provided — patient will need to be assigned credentials manually
     }
 
     try {
@@ -77,6 +91,7 @@ export const patientController = {
           mcpCardNumber: request.body.mcpCardNumber,
           status: "registered",
           authId: authId,
+          pinHash: pinHash,
           assignedNurseUser: request.body.assignedNurse
             ? { connect: { id: request.body.assignedNurse } }
             : request.user
@@ -103,13 +118,14 @@ export const patientController = {
         }
       });
     } catch (error: any) {
+      // Best-effort Supabase rollback if we have an authId
       if (authId) {
-        const { supabaseAdmin } = await import("../../config/supabase.js");
-        // Best-effort rollback — if deleteUser fails (e.g. network timeout), log but don't
-        // mask the original DB error. The orphaned Supabase user will need manual cleanup.
-        await supabaseAdmin.auth.admin.deleteUser(authId).catch((deleteErr: unknown) => {
-          console.error("[patient.create] Failed to rollback Supabase user after DB error:", deleteErr);
-        });
+        try {
+          const { supabaseAdmin } = await import("../../config/supabase.js");
+          await supabaseAdmin.auth.admin.deleteUser(authId).catch((deleteErr: unknown) => {
+            console.error("[patient.create] Failed to rollback Supabase user after DB error:", deleteErr);
+          });
+        } catch { /* ignore rollback errors */ }
       }
       if (error.code === 'P2002') {
         throw createHttpError(409, "User with this phone number already exists.");

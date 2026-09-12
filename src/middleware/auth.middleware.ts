@@ -57,17 +57,17 @@ export async function requireAuth(request: Request, _response: Response, next: N
 
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
-  // Try custom JWT first for staff
+  // Try custom JWT first (staff or patient)
   try {
     const jwtSecret = env.JWT_SECRET || "fallback-secret-for-dev";
     const decoded = jwt.verify(token, jwtSecret) as any;
-    
+
     if (decoded && decoded.type === "custom-staff-auth") {
       const appUser = await prisma.user.findUnique({ where: { id: decoded.id } });
       if (!appUser || !appUser.isActive) {
         return next(createHttpError(403, "User is disabled or not found."));
       }
-      
+
       request.user = {
         id: appUser.id,
         authId: appUser.authId,
@@ -77,8 +77,24 @@ export async function requireAuth(request: Request, _response: Response, next: N
       };
       return next();
     }
+
+    if (decoded && decoded.type === "custom-patient-auth") {
+      const patient = await prisma.patient.findUnique({ where: { id: decoded.id } });
+      if (!patient) {
+        return next(createHttpError(403, "Patient not found."));
+      }
+
+      request.user = {
+        id: patient.id,
+        authId: patient.authId ?? null,
+        role: "patient",
+        phone: patient.phone ?? "",
+        facilityId: patient.facilityId
+      };
+      return next();
+    }
   } catch (err) {
-    // Not a valid custom JWT, fall back to Supabase auth for patients/existing users
+    // Not a valid custom JWT, fall back to Supabase auth for existing users
   }
 
   const { data, error } = await supabaseAdmin.auth.getUser(token);
